@@ -21,11 +21,10 @@ def check_for_updates():
         assets = response.get("assets", [])
         exe = None
         if latest_version and latest_version != current_version:
-            print(f"New version {latest_version} available!")
             for asset in assets:
                 if asset["name"].endswith(".exe"):
                     download_url = asset["browser_download_url"]
-                    print(f"download at: {download_url}")
+                    print(f"New version {latest_version} available! download at: {download_url}")
                     break
         else:
             print(f"{latest_version} is the latest version")
