@@ -1,5 +1,7 @@
 *.dvd
 *.spec
+*.bat
+*.exe
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -101,17 +103,5 @@ ENV/
 # mypy
 .mypy_cache/
 DVD.spec
-build/DVD/Analysis-00.toc
-build/DVD/COLLECT-00.toc
-build/DVD/DVD.exe
-build/DVD/DVD.exe.manifest
-build/DVD/EXE-00.toc
-build/DVD/PKG-00.toc
-build/DVD/PYZ-00.pyz
-build/DVD/PYZ-00.toc
-build/DVD/Tree-00.toc
-build/DVD/Tree-01.toc
-build/DVD/Tree-02.toc
-build/DVD/warn-DVD.txt
-build/DVD/xref-DVD.html
-dist/DVD.exe
+**/build/
+**/dist/

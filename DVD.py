@@ -1,10 +1,72 @@
-import pygame as p, pygame_widgets as pw, random as r, time as t, sys, tkinter as tk, os
+import pygame as p, pygame_widgets as pw, random as r, time as t, sys, tkinter as tk, os, requests, subprocess
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
 from pygame_widgets.button import Button
 from pygame_widgets.toggle import Toggle
 from pygame_widgets.progressbar import ProgressBar
 from tkinter import filedialog
+
+current_version = 'v1.3.0'
+latest_version = ''
+download_url = 'None'
+download = False
+
+def check_for_updates():
+    global download_url, latest_version
+    url = "https://api.github.com/repos/kadenbiel2002/Dvd-Screen-Saver-Py/releases/latest"
+    print("Checking for updates...")
+    try:
+        response = requests.get(url).json()
+        latest_version = response.get("tag_name", "")
+        assets = response.get("assets", [])
+        exe = None
+        if latest_version and latest_version != current_version:
+            print(f"New version {latest_version} available!")
+            for asset in assets:
+                if asset["name"].endswith(".exe"):
+                    download_url = asset["browser_download_url"]
+                    print(f"download at: {download_url}")
+                    break
+        else:
+            print(f"{latest_version} is the latest version")
+    except Exception as e:
+        print(f"Could not check for updates: {e}")
+
+def download_update():
+    print(f"Downloading {latest_version}...")
+    with requests.get(download_url, stream=True) as r:
+        r.raise_for_status()
+        with open('./temp.exe', "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+    restart_and_replace()
+    return
+
+def restart_and_replace():
+    running_exe = sys.executable  # Path to the currently running .exe
+    new_exe = "./temp.exe"  # The updated executable file
+    # 2. Spawn a helper/updater process (detached from the current process)
+    # The helper script/bat will wait a second, overwrite running_exe with new_exe, and launch it.
+    script_content = f"""
+    timeout /t 2 > nul
+    del "{running_exe}"
+    copy "{new_exe}" "{running_exe}"
+    del "{new_exe}"
+    start "" "%~dp0\DVD.exe"
+    del "%~f0"
+    """
+            
+    # Creates a temporary batch file for the update sequence
+    batch_file = "update_helper.bat"
+    batch = open(batch_file, "w")
+    batch.write(script_content)
+    batch.close()
+
+    #if the running exe is python.exe, batch file is not executed so we don't replace python with the dvd screen saver (i've done it, trust me you don't want to try it)
+    if not running_exe.endswith('python.exe'):
+        subprocess.Popen(batch_file, shell=True)
+    else:
+        print("dev mode detected, batch file not created")
 
 def rp(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -217,7 +279,6 @@ p.display.set_caption('DVD')#Sets executable capton
 fps = fpsS.getValue() #sets FPS
 clock = p.time.Clock() #sets FPS clock
 
-run = True
 x, y = screen.get_rect().center #sets the start location
 counter = 0
 edgeX = False #edge detection to prevent logo from locking up outside of bounds
@@ -343,6 +404,8 @@ imyTxt, imyRect = renderText('Logo Height: 127')
 ksTxt, ksRect = renderText('Keep Scale')
 
 oldX, oldY = 0, 0
+
+run = __name__ == '__main__'
 
 while run:
     events = p.event.get()
@@ -639,7 +702,18 @@ while run:
         finished = True
         settings = False
         startup.hide()
-    
+
+    if latest_version == '':
+        check_for_updates()
+
+    if download_url != 'None' and startProg > 0.37:
+        download = tk.messagebox.askyesno(title="Update Available!", message=f"Version {latest_version} is available for download, would you like to update?")
+        if download:
+            download_update()
+            run = False
+        else:
+            download_url = 'None'
+
     pw.update(events)
     p.display.update() #updates screen
     clock.tick(fps) #updates fps clock
