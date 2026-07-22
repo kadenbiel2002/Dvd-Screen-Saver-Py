@@ -229,6 +229,12 @@ def progress():
     startProg += 0.005
     return startProg
 
+p.mixer.init()
+sfx1 = p.mixer.Sound(rp('./sprites/sfx1.ogg'))
+sfx2 = p.mixer.Sound(rp('./sprites/sfx2.ogg'))
+sfx3 = p.mixer.Sound(rp('./sprites/sfx3.ogg'))
+sfx4 = p.mixer.Sound(rp('./sprites/sfx4.ogg'))
+trumpet = p.mixer.Sound(rp('./sprites/trumpet.ogg'))
 root = tk.Tk()
 root.withdraw() 
 root.attributes('-topmost', True)
@@ -324,6 +330,9 @@ def hit_edge(xy, dvd=p.image.load(rp('./sprites/DVD_Mask.png'))):
     Function for when logo hits the edge
         xy: int, expects 1 if horizontal edge is hit and 0 if vertical edge is hit.
     """
+    if finished:
+        sfx = r.choice([sfx1, sfx2, sfx3, sfx4])
+        sfx.play()
     vel[xy] = -vel[xy] #"Bounces" logo of the edge
     new_color = r.choice(colors)
     if new_color == wht:
@@ -479,6 +488,18 @@ while run:
                     keepScale.hide()
                     if fullscr:
                         p.mouse.set_visible(False)
+            """
+            #forces logo to hit corner, only for debugging
+            if event.key == p.K_c:
+                if vel[0] > 0:
+                    x = width-offsetX-100
+                else:
+                    x = offsetX+100
+                if vel[1] > 0:
+                    y = height-offsetY-100
+                else:
+                    y = offsetY+100
+            """
 
     src = p.display.Info()
     width, height = src.current_w, src.current_h
@@ -527,6 +548,7 @@ while run:
         dvdW, dvdH = DVDRECT.size
     
     if edgeX and edgeY:
+        trumpet.play()
         print("corner")
         c += 1 #increase corner counter
        
