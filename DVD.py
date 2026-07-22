@@ -128,11 +128,15 @@ def change_image(DVD):
     try:
         New_DVD = p.image.load(rp(imageL.getText()))
         Img_X, Img_Y = New_DVD.get_size()
-        newY = round((288/Img_X)*Img_Y)
-        newX = 288
-        if newY > 550:
-            newY = 550
-            newX = round((550/Img_Y)*Img_X)
+        if startProg < 1.0:
+            newX = imageX.getValue()
+            newY = imageY.getValue()
+        else:
+            newY = round((288/Img_X)*Img_Y)
+            newX = 288
+            if newY > 550:
+                newY = 550
+                newX = round((550/Img_Y)*Img_X)
         New_DVD = p.transform.scale(New_DVD, (newX, newY))
         Img_X, Img_Y = New_DVD.get_size()
         imageX.setValue(Img_X)
@@ -338,7 +342,7 @@ imxTxt, imxRect = renderText('Logo Width: 288')
 imyTxt, imyRect = renderText('Logo Height: 127')
 ksTxt, ksRect = renderText('Keep Scale')
 
-oldX, oldY = 288, 127
+oldX, oldY = 0, 0
 
 while run:
     events = p.event.get()
