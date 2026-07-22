@@ -114,6 +114,8 @@ def reset():
     speed.setValue(1.0)
     fpsS.setValue(120)
     imageL.setText('./sprites/DVD_Mask.png')
+    if not keepScale.getValue():
+        keepScale.toggle()
     
 def change_color(mask, color):
     colored_image = p.Surface((p.display.Info().current_w, p.display.Info().current_h))
@@ -214,8 +216,6 @@ helpmsg = ["----Help----", "F3: Show live in-game information", "F11: Fullscreen
 p.display.set_caption('DVD')#Sets executable capton
 fps = fpsS.getValue() #sets FPS
 clock = p.time.Clock() #sets FPS clock
-more = Font.render("--Press H for help--", True, (255, 255, 255)) #makes default on boot helper
-morerect = more.get_rect() #makes surface for default on boot helper
 
 run = True
 x, y = screen.get_rect().center #sets the start location
