@@ -8,7 +8,7 @@ a = Analysis(
     ['DVD.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[('sprites', 'sprites'), ('dvdFont.ttf', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
