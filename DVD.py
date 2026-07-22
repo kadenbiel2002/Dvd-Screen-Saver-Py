@@ -2,6 +2,9 @@ import pygame as p, pygame_widgets as pw, random as r, time as t, sys, tkinter a
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
 from pygame_widgets.button import Button
+from pygame_widgets.toggle import Toggle
+from pygame_widgets.progressbar import ProgressBar
+from tkinter import filedialog
 
 def rp(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -14,16 +17,22 @@ def rp(relative_path):
     return os.path.join(base_path, relative_path)
 
 def checkIn(txt, min, max):
+    """
+    txt: str, user input.
+    min: float, minimum value
+    max: float, maximum value
+    Checks if the txt input is within bounds specified, returns true if input was within bounds false if not.
+    """
     try:
-        txt = float(txt)
+        txt = float(txt) #if input was not a number, an excepetion will be raised and printed in the log
         if txt > max or txt < min:
-            raise Exception("input out of bounds")
+            raise Exception("input out of bounds") #raise exception if the user input was outside the bounds of the slider
     except Exception as e:
         print(e)
         return False
     return True
 
-def submit(id, min, max):
+def submit(id, min=0, max=0):
     if id == 's':
         if checkIn(speedL.getText(), min, max):
             speed.setValue(float(speedL.getText()))
@@ -40,37 +49,54 @@ def submit(id, min, max):
         if checkIn(fpsL.getText(), min, max):
             fpsS.setValue(float(fpsL.getText()))
         else:
-            fpsL.setText(fpsS.getValue())
+            fpsL.setText(fpsS.getValue())  
+    elif id == 'i':
+        return True
 
 def save():
+    """
+    Writes settings to save file, each setting value is stored on one line of the save file.
+    """
     saveF = open(rp('./save.dvd'), 'w')
-    for i in [speed.getValue(), '\n', fpsS.getValue()]:
+    for i in [speed.getValue(), '\n', fpsS.getValue(), '\n', imageX.getValue(), '\n', imageY.getValue(), '\n', imageL.getText(), '\n', keepScale.getValue()]:
         saveF.write(str(i))
     saveF.close()
     print('saved')
 
 def openSave():
+    """
+    Opens the save file and sets setting values to saved values, returns string for altSpeed mode
+    """
     print('opening...')
-    saveLines = []
-    try: 
-        saveF = open(rp('./save.dvd'), 'r')
+    saveLines = [] # list for containing saved values
+    try:
+        saveF = open(rp('./save.dvd'), 'r') # if no save file was found, an excepetion will be raised
         for line in saveF:
             saveLines.append(line)
     except Exception as e:
-        print(e)
+        print(e) # creates save file and passes default values along
         saveF = open(rp('./save.dvd'), 'w')
-        saveF.write('1.0\n60')
-        saveLines = ['1.0', '60']
+        saveF.write('1.0\n120\n288\n127\n./sprites/DVD_Mask.png\nTrue')
+        saveLines = ['1.0', '120', '288', '127', './sprites/DVD_Mask.png', 'True']
     
     saveF.close()
-
+    
+    # sets sliders and text box to saved values, updating slider values will automatically update speed and fps variables
     speed.setValue(float(saveLines[0]))
     speedL.setText(speed.getValue())
     fpsS.setValue(float(saveLines[1]))
     fpsL.setText(fpsS.getValue())
-    altSpeed = 'n'
+    imageX.setValue(int(saveLines[2]))
+    imageY.setValue(int(saveLines[3]))
+    imageL.setText(saveLines[4].replace('\n', ''))
+    if saveLines[5] == 'False':
+        ksBool = False
+    else:
+        ksBool = True
+    altSpeed = 'n' # set to 's' for slow mode, 'f' for fast mode and 'n' for normal
 
     if not checkIn(float(saveLines[0]), .5, 30):
+        # if the value is outside bounds, altSpeed will be enabled
         if float(saveLines[0]) > 30:
             altSpeed = 'f'
             speed.max = 120
@@ -79,65 +105,144 @@ def openSave():
             altSpeed = 's'
             speed.min = .01
             speedL.setText('slow')
-    return altSpeed
+    return altSpeed, ksBool
 
 def reset():
+    """
+    Resets settings to default values
+    """
     speed.setValue(1.0)
-    fpsS.setValue(60)
+    fpsS.setValue(120)
+    imageL.setText('./sprites/DVD_Mask.png')
+    if not keepScale.getValue():
+        keepScale.toggle()
+    
+def change_color(mask, color):
+    colored_image = p.Surface((p.display.Info().current_w, p.display.Info().current_h))
+    colored_image.fill(color)
+    
+    final_image = mask.copy()
+    final_image.blit(colored_image, (0,0), special_flags = p.BLEND_MULT)
+    return final_image
+    
+def change_image(DVD):
+    print('Setting Custom Image...')
+    try:
+        New_DVD = p.image.load(rp(imageL.getText()))
+        Img_X, Img_Y = New_DVD.get_size()
+        if startProg < 1.0:
+            newX = imageX.getValue()
+            newY = imageY.getValue()
+        else:
+            newY = round((288/Img_X)*Img_Y)
+            newX = 288
+            if newY > 550:
+                newY = 550
+                newX = round((550/Img_Y)*Img_X)
+        New_DVD = p.transform.scale(New_DVD, (newX, newY))
+        Img_X, Img_Y = New_DVD.get_size()
+        imageX.setValue(Img_X)
+        imageY.setValue(Img_Y)
+        icn = p.transform.scale(New_DVD, (100,100))
+        p.display.set_icon(icn)
+        return New_DVD
+    except Exception as e:
+        print(e)
+        imageL.setText('./sprites/DVD_Mask.png')
+        return DVD
 
+def select_file():
+    file_path = filedialog.askopenfilename(
+        title="Select a File",
+        initialdir=os.getcwd(), # Starts in the current directory
+        filetypes=(("PNG", "*.png"), ("JPEG", "*.jpeg"), ("JPG", "*.jpg"), ("BMP", "*.bmp"), ("WEBP", "*.webp"), ("SVG", "*.svg"))
+    )
+
+    if file_path:
+        imageL.setText(file_path)
+
+startProg = 0.0
+
+def progress():
+    global startProg
+    startProg += 0.005
+    return startProg
+
+root = tk.Tk()
+root.withdraw() 
+root.attributes('-topmost', True)
 p.init() #Initialize Pygame
 Font = p.font.Font(rp('dvdFont.ttf'), 25) #initializes font
 bigFont = p.font.Font(rp('dvdFont.ttf'), 35)
-width, height = 640, 480 #Initial screen width & height
+width, height = 1500, 750 #Initial screen width & height
 screen = p.display.set_mode((width, height), p.RESIZABLE) #Sets screen to resizable mode
-speed = Slider(screen, 100, 50, 800, 20, min=.5, max=30, step=.25, initial=1, colour=(174, 235, 230))
+speed = Slider(screen, 100, 50, 800, 20, min=.5, max=30, step=.25, initial=1, colour=(174, 235, 230)) #Initialize speed slider
 speed.hide()
-speedL = TextBox(screen, 100, 80, 50, 30, fontSize=20, radius=10, onSubmit=submit, onSubmitParams=('s', .5, 30), borderThickness=1, colour=(174, 235, 230))
+speedL = TextBox(screen, 100, 80, 70, 30, fontSize=15, radius=10, onSubmit=submit, onSubmitParams=('s', .5, 30), borderThickness=1, colour=(174, 235, 230)) #Initialize speed text box
 speedL.setText('1.0')
 speedL.hide()
-fpsS = Slider(screen, 100, 200, 800, 20, min=5, max=180, step=1, initial=60, colour=(174, 235, 230))
+fpsS = Slider(screen, 100, 180, 800, 20, min=5, max=400, step=1, initial=120, colour=(174, 235, 230))
 fpsS.hide()
-fpsL = TextBox(screen, 100, 230, 40, 30, fontSize=20, radius=10, onSubmit=submit, onSubmitParams=('f', 5, 180), borderThickness=1, colour=(174, 235, 230))
+fpsL = TextBox(screen, 100, 210, 70, 30, fontSize=15, radius=10, onSubmit=submit, onSubmitParams=('f', 5, 400), borderThickness=1, colour=(174, 235, 230))
 fpsL.setText('60')
 fpsL.hide()
-resetB = Button(screen, 100, 300, 50, 30, text='Reset', onClick=reset)
+imageL = TextBox(screen, 100, 310, 800, 30, fontSize=15, radius=10, onSubmit=submit, onSubmitParams=('i'), borderThickness=1, colour=(174, 235, 230))
+imageL.setText('./sprites/DVD_Mask.png')
+imageL.disable()
+imageL.hide()
+fileB = Button(screen, 100, 310, 150, 30, text='Choose File', onClick=select_file)
+fileB.hide()
+imageX = Slider(screen, 100, 410, 800, 20, min=25, max=550, step=1, initial=288, colour=(174, 235, 230))
+imageX.hide()
+imageY = Slider(screen, 100, 510, 800, 20, min=25, max=550, step=1, initial=127, colour=(174, 235, 230))
+imageY.hide()
+resetB = Button(screen, 100, 650, 50, 30, text='Reset', onClick=reset)
 resetB.hide()
-altSpeed = openSave()
+altSpeed, ksBool = openSave() #opens save file, returns string for altSpeed mode
+keepScale = Toggle(screen, 100, 610, 20, 20, startOn=ksBool)
+keepScale.hide()
+startup = ProgressBar(screen, 100, 100, 800, 60, progress, curved=True)
 os.environ['SDL_VIDEO_CENTERED'] = '1'
-x, y, vel = 0, 0, [speed.getValue(), speed.getValue()] #Makes coordinates and velocity
+x, y, vel = 0, 0, [speed.getValue()*r.choice([1, -1]), speed.getValue()*r.choice([1, -1])] #Makes coordinates and velocity
 showInfo = False #sets bool to show display info
 fullscr = False #sets bool to toggle full screen
 iter = False #sets iteration bool for fullscreen toggles
 catch = False #sets catch bool for fullscreen toggles
 showHelp = False #sets the bool to bring up the help menu
 settings = False #sets bool to toggle the settings menu
-showMenuHelp = True #sets the bool to toggle the --Press H for help--
 c = 0 #sets counter for corner hits
 h = 0 #sets counter for total hits
-corners = [(width-29, height-19), (29, 19), (width-29, 19), (29, height-19)] #defiones list of all corner coordinates
 helpmsg = ["----Help----", "F3: Show live in-game information", "F11: Fullscreen toggle", "R: set the logo to the center of the screen", "H: Toggle this menu", "S: Open settings"] #defines list of lines in the help message
-DVD = p.image.load(rp('./sprites/w.png')) #Loads a sprite
-DVDRECT = DVD.get_rect() #Makes object for the sprites to be loaded onto
 p.display.set_caption('DVD')#Sets executable capton
 fps = fpsS.getValue() #sets FPS
 clock = p.time.Clock() #sets FPS clock
-more = Font.render("--Press H for help--", True, (255, 255, 255)) #makes default on boot helper
-morerect = more.get_rect() #makes surface for default on boot helper
+
 run = True
-x, y = r.choice([570, 571, 572]), r.choice([420, 421, 422]) #sets the start location
+x, y = screen.get_rect().center #sets the start location
 counter = 0
+edgeX = False #edge detection to prevent logo from locking up outside of bounds
+edgeY = False
 
 #Loads in sprites
-wht = p.image.load(rp('./sprites/w.png'))
-blu = p.image.load(rp('./sprites/b.png'))
-pnk = p.image.load(rp('./sprites/p2.png'))
-pur = p.image.load(rp('./sprites/p.png'))
-grn = p.image.load(rp('./sprites/g.png'))
-org = p.image.load(rp('./sprites/o.png'))
-ylw = p.image.load(rp('./sprites/y.png'))
-p.display.set_icon(wht)
+wht = p.Color(0)
+wht.hsla = (0, 0, 100, 100)
+grn = p.Color(0)
+grn.hsla = (122, 100, 40, 100)
+blu = p.Color(0)
+blu.hsla = (244, 100, 40, 100)
+red = p.Color(0)
+red.hsla = (0, 100, 50, 30)
+org = p.Color(0)
+org.hsla = (35, 100, 50, 0)
+colors = [wht, grn, blu, red, org]
+mask = p.image.load(rp('./sprites/DVD_Mask.png')).convert_alpha()
+hue = 0
+imageText = './sprites/DVD_Mask.png'
+submit = False
+prevHit = ''
+finished = False
 
-def get_info():
+def get_info(color):
     """
     Function for getting in game live information
     """
@@ -148,36 +253,36 @@ def get_info():
     curW, curH = info.current_w, info.current_h #gets current width and height of window
     fps = round(clock.get_fps())#gets current fps (in interger)
 
-    #gets current color of the DVD logo
-    if DVD == wht:
-        color = "Color: White"
-    if DVD == blu:
-        color = "Color: Blue"
-    if DVD == pnk:
-        color = "Color: Pink"
-    if DVD == pur:
-        color = "Color: Purple"
-    if DVD == grn:
-        color = "Color: Green"
-    if DVD == org:
-        color = "Color: Orange"
-    if DVD == ylw:
-        color = "Color: Yellow"
 
     hits = "Total hits: "+str(h) #gets total hits
     corner = "Corner hits: "+str(c) #gets corner hits
 
     return ["DVD X: "+str(curPosX)+" Y: "+str(curPosY), "Screen Width: "+str(curW)+" Height: "+str(curH), "FPS: "+str(fps), hits, corner, color]
 
-def hit_edge(xy):
+def hit_edge(xy, dvd=p.image.load(rp('./sprites/DVD_Mask.png'))):
     """
     Function for when logo hits the edge
         xy: int, expects 1 if horizontal edge is hit and 0 if vertical edge is hit.
     """
     vel[xy] = -vel[xy] #"Bounces" logo of the edge
-    DVD = r.choice([wht, blu, pnk, pur, grn, org, ylw]) #sets logo to new random color
-    p.display.set_icon(DVD) #sets window icon to cureent logo color
-    return DVD
+    new_color = r.choice(colors)
+    if new_color == wht:
+        color = "Color: White"
+    elif new_color == grn:
+        color = "Color: Green"
+    elif new_color == blu:
+        color = "Color: Blue"
+    elif new_color == red:
+        color = "Color: Red"
+    elif new_color == org:
+        color = "Color: Orange"
+    if imageText == './sprites/DVD_Mask.png':
+        dvd = change_color(mask, new_color) #sets logo to new random color
+        icn = p.transform.scale(dvd, (100,100))
+        p.display.set_icon(icn) #sets window icon to cureent logo color
+    else:
+        color = "Custom Image"
+    return dvd, color
 
 def textHollow(font, message, fontcolor):
     notcolor = [c^0xFF for c in fontcolor]
@@ -204,6 +309,40 @@ def textOutline(font, message, fontcolor, outlinecolor):
     img.blit(outline, (0, 0))
     img.set_colorkey(0)
     return img
+    
+def logoInBounds(x, y, w, h):
+    if 30 < x < w-30 and 20 < y < h-20:
+        return True
+    else:
+        return False
+
+def renderText(txt):
+    newTxt = bigFont.render(txt, True, (255,255,255))
+    newTxtRect = newTxt.get_rect()
+    return newTxt, newTxtRect
+
+DVD, color = hit_edge(0) #initializes DVD color
+DVDRECT = DVD.get_rect() #Makes object for the sprites to be loaded onto
+p.display.set_icon(DVD)
+offsetX = mask.get_size()[0]/2
+offsetY = mask.get_size()[1]/2
+
+dvdW, dvdH = DVDRECT.size
+scalar = dvdW/dvdH
+
+bkg = p.Surface((50, 50)) #creates and draws transparent background for menu
+bkg.set_alpha(50) #makes the background semi-transparent
+bkg.fill((200, 222, 221)) #sets background to grey
+
+startTxt, startRect = renderText('Press H in-game for options menu')
+spTxt, spRect = renderText('Speed')
+fpTxt, fpRect = renderText('FPS')
+imTxt, imRect = renderText('File Name')
+imxTxt, imxRect = renderText('Logo Width: 288')
+imyTxt, imyRect = renderText('Logo Height: 127')
+ksTxt, ksRect = renderText('Keep Scale')
+
+oldX, oldY = 0, 0
 
 while run:
     events = p.event.get()
@@ -217,10 +356,10 @@ while run:
             #toggles info menu
 
             if event.key == p.K_ESCAPE:
-                if showMenuHelp:
-                    showMenuHelp = False
-                elif showHelp:
+                if showHelp:
                     showHelp = False
+                elif settings:
+                    settings = False
                 else:
                     print("exiting")
                     run = False
@@ -240,14 +379,13 @@ while run:
                     p.mouse.set_visible(True)
 
             #resets the logo to the center of the window
-            if event.key == p.K_r:
+            if event.key == p.K_r and not imageL.selected:
                 info = p.display.Info()
                 x, y = round(info.current_w/2), round(info.current_h/2)
 
             #toggles help menu
-            if event.key == p.K_h:
+            if event.key == p.K_h and not imageL.selected:
                 showHelp = not showHelp
-                showMenuHelp = False
 
             #toggles settings
             if event.key == p.K_s:
@@ -259,14 +397,24 @@ while run:
                     speedL.show()
                     fpsS.show()
                     fpsL.show()
+                    imageL.show()
+                    fileB.show()
                     resetB.show()
+                    imageX.show()
+                    imageY.show()
+                    keepScale.show()
                     p.mouse.set_visible(True)
                 else:
                     speed.hide()
                     speedL.hide()
                     fpsS.hide()
                     fpsL.hide()
+                    imageL.hide()
+                    fileB.hide()
                     resetB.hide()
+                    imageX.hide()
+                    imageY.hide()
+                    keepScale.hide()
                     if fullscr:
                         p.mouse.set_visible(False)
 
@@ -277,44 +425,64 @@ while run:
     x += vel[0]
     y += vel[1]
 
-    #checks if logo hits a corner
-    if (x, y) in corners:
-        print("corner")
-        c += 1
-
     #Checks if logo hits a wall
-    if x > width-30:
-        print("right")
-        DVD = hit_edge(0)
+    if x > width-offsetX and not edgeX and prevHit != 'right':
+        prevHit = 'right'
+        DVD, color = hit_edge(0, DVD)
         h += 1 #increases hit counter
-        x = width-30
+        edgeX = True
+        DVD = p.transform.scale(DVD, (imageX.getValue(), imageY.getValue()))
+        DVDRECT = DVD.get_rect()
+        dvdW, dvdH = DVDRECT.size
         
-    if x < 30:
-        print("left")
-        DVD = hit_edge(0)
+    if x < offsetX and not edgeX and prevHit != 'left':
+        prevHit = 'left'
+        DVD, color = hit_edge(0, DVD)
         h += 1 #increases hit counter
-        x = 30
+        edgeX = True
+        DVD = p.transform.scale(DVD, (imageX.getValue(), imageY.getValue()))
+        DVDRECT = DVD.get_rect()
+        dvdW, dvdH = DVDRECT.size
+    
+    if y > height-offsetY and not edgeY and prevHit != 'bottom':
+        prevHit = 'bottom'
+        DVD, color = hit_edge(1, DVD)
+        if not edgeX:
+            h += 1 #increases hit counter
+        edgeY = True
+        DVD = p.transform.scale(DVD, (imageX.getValue(), imageY.getValue()))
+        DVDRECT = DVD.get_rect()
+        dvdW, dvdH = DVDRECT.size
+
+    if y < offsetY and not edgeY and prevHit != 'top':
+        prevHit = 'top'
+        DVD, color = hit_edge(1, DVD)
+        if not edgeX:
+            h += 1 #increases hit counter
+        edgeY = True
+        DVD = p.transform.scale(DVD, (imageX.getValue(), imageY.getValue()))
+        DVDRECT = DVD.get_rect()
+        dvdW, dvdH = DVDRECT.size
+    
+    if edgeX and edgeY:
+        print("corner")
+        c += 1 #increase corner counter
+       
+    if edgeX and logoInBounds(x, y, width, height):
+        edgeX = False
         
-    if y > height-20:
-        print("bottom")
-        DVD = hit_edge(1)
-        h += 1 #increases hit counter
-        y = height-20
-
-    if y < 20:
-        print("top")
-        DVD = hit_edge(1)
-        h += 1 #increases hit counter
-        y = 20
-
+    if edgeY and logoInBounds(x, y, width, height):
+        edgeY = False
+    
     screen.fill((0, 0, 0)) #redraws black background
-    DVDRECT.center = (x, y) #moves the logo
-    screen.blit(DVD, DVDRECT) #Updates logo
     Iy = 9 #sets text starting Y coordinate
+    offsetX, offsetY = dvdW/2, dvdH/2
+    DVDRECT.center = (x, y) #moves the logo
+    screen.blit(DVD, DVDRECT)
 
     #shows live info menu
     if showInfo:
-        info = get_info()
+        info = get_info(color)
         for i in info:
             curIn = Font.render(i, True, (255,255,255))
             curInRect = curIn.get_rect()
@@ -330,35 +498,38 @@ while run:
             helprect.center = (round(helprect.w/2), Iy)
             screen.blit(help, helprect)
             Iy += 18
-    else:
-        #shows default on boot helper
-        if showMenuHelp:
-            morerect.center = (round(morerect.w/2), Iy)
-            screen.blit(more, morerect)
-            counter += 1
 
     #displays settings menu
     if settings:
-        bkg = p.Surface((width, height)) #creates and draws transparent background for menu
-        bkg.set_alpha(50)
-        bkg.fill((200, 222, 221))
+        if bkg.get_size()[0] != width or bkg.get_size()[1] != height:
+            """Detects if screen size has changed, scales setting page accordingly"""
+            bkg = p.transform.scale(bkg, (width, height))
+            spRect.center = (round(width/2), 28)
+            fpRect.center = (round(width/2), 158)
+            imRect.center = (round(width/2), 288)
+            ksRect.center = (round(width/2), 588)
+            speed.setWidth(width-200)
+            fpsS.setWidth(width-200)
+            imageX.setWidth(width-200)
+            imageY.setWidth(width-200)
+            speedL.setX(int(round(width/2))-int(round(speedL.getWidth()/2)))
+            fpsL.setX(int(round(width/2))-int(round(fpsL.getWidth()/2)))
+            keepScale.setX(int(round(width/2))-int(round(keepScale.getWidth()/2)))
+            resetB.setX(int(round(width/2))-int(round(resetB.getWidth()/2)))
+
+            fileWidth = imageL.getWidth() + fileB.getWidth() + 25
+            fileB.setX(round((width/2)-(fileWidth/2)))
+            imageL.setX(fileB.getX()+fileB.getWidth()+25)
+        imxRect.center = (round(width/2), 388)
+        imyRect.center = (round(width/2), 488)
+        #Draws text labels:
         screen.blit(bkg, (0,0))
-
-        spTxt = bigFont.render('Speed', True, (255,255,255))
-        spRect = spTxt.get_rect()
-        spRect.center = (round(width/2), 25)
         screen.blit(spTxt, spRect)
-
-        fpTxt = bigFont.render('FPS', True, (255,255,255))
-        fpRect = fpTxt.get_rect()
-        fpRect.center = (round(width/2), 175)
         screen.blit(fpTxt, fpRect)
-
-        speed.setWidth(width-200)
-        speedL.setX(int(round(width/2))-int(round(speedL.getWidth()/2)))
-        fpsS.setWidth(width-200)
-        fpsL.setX(int(round(width/2))-int(round(fpsL.getWidth()/2)))
-        resetB.setX(int(round(width/2))-int(round(resetB.getWidth()/2)))
+        screen.blit(imTxt, imRect)
+        screen.blit(imxTxt, imxRect)
+        screen.blit(imyTxt, imyRect)
+        screen.blit(ksTxt, ksRect)
 
         if abs(vel[0]) != speed.getValue():
             if speed.getValue() > 30 and altSpeed != 'f':
@@ -394,14 +565,85 @@ while run:
             vel[1] = -(speed.getValue())
         else:
             vel[1] = speed.getValue()
+            
+        if imageL.getText() != imageText:
+            DVD = change_image(DVD)
+            dvdW, dvdH = DVD.get_size()
+            scalar = dvdW/dvdH
+            imageText = imageL.getText()
+            if imageText != './sprites/DVD_Mask.png':
+                color = 'Custom Image'
+            else:
+                color = 'Color: White'
+            oldX, oldY = 0, 0
 
-    if counter >= fps*5:
-        showMenuHelp = False
-        counter = 0
-        
+        if oldX != imageX.getValue() or oldY != imageY.getValue():
+            if keepScale.getValue() and oldX != imageX.getValue():
+                newY = round(imageX.getValue()/scalar)
+                if newY > 550:
+                    print('Too Tall')
+                    imageX.setValue(round(550*scalar))
+                    imageY.setValue(550)
+                else:
+                    imageY.setValue(newY)
+            if keepScale.getValue() and oldY != imageY.getValue():
+                newX = round(imageY.getValue()*scalar)
+                if newX > 550:
+                    print('Too Wide')
+                    imageY.setValue(round(imageX.getValue()/scalar))
+                    imageX.setValue(550)
+                else:
+                    imageX.setValue(newX)
+            
+            imxTxt, imxRect = renderText('Logo Width: '+str(imageX.getValue()))
+            imyTxt, imyRect = renderText('Logo Height: '+str(imageY.getValue()))
+            
+            if color != 'Custom Image':
+                if color == "Color: White":
+                    new_color = wht
+                if color == "Color: Green":
+                    new_color = grn
+                if color == "Color: Blue":
+                    new_color = blu
+                if color == "Color: Red":
+                    new_color = red
+                if color == "Color: Orange":
+                    new_color = org
+                DVD = change_color(mask, new_color) #refreshes logo before transform, image gets weird if this is not done
+            else:
+                DVD = p.image.load(imageText) #refreshes image if custom image is being used
+            
+            DVD = p.transform.scale(DVD, (imageX.getValue(), imageY.getValue()))
+            DVDRECT = DVD.get_rect()
+            dvdW, dvdH = DVDRECT.size
+            
+            oldX, oldY = imageX.getValue(), imageY.getValue()
+          
+        if dvdW/dvdH != scalar and keepScale.getValue():
+            newY = round(imageX.getValue()/scalar)
+            if newY > 550:
+                newX = round(imageY.getValue()*scalar)
+                imageX.setValue(newX)
+            else:
+                imageY.setValue(newY)
+
+    if startProg < 1.0:
+        startup.setWidth(width-100)
+        startup.setX(round((width/2)-(startup.getWidth()/2)))
+        startup.setY(round(height/2))
+        startRect.center = (round(width/2), (startup.getY()-50))
+        screen.fill((55, 59, 66))
+        screen.blit(startTxt, startRect)
+        settings = True
+    elif not finished:
+        finished = True
+        settings = False
+        startup.hide()
+    
     pw.update(events)
     p.display.update() #updates screen
     clock.tick(fps) #updates fps clock
 
 save()
 p.quit()
+quit()
