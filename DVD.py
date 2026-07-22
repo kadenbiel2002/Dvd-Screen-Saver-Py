@@ -57,7 +57,7 @@ def save():
     """
     Writes settings to save file, each setting value is stored on one line of the save file.
     """
-    saveF = open(rp('./save.dvd'), 'w')
+    saveF = open('./save.dvd', 'w')
     for i in [speed.getValue(), '\n', fpsS.getValue(), '\n', imageX.getValue(), '\n', imageY.getValue(), '\n', imageL.getText(), '\n', keepScale.getValue()]:
         saveF.write(str(i))
     saveF.close()
@@ -70,12 +70,12 @@ def openSave():
     print('opening...')
     saveLines = [] # list for containing saved values
     try:
-        saveF = open(rp('./save.dvd'), 'r') # if no save file was found, an excepetion will be raised
+        saveF = open('./save.dvd', 'r') # if no save file was found, an excepetion will be raised
         for line in saveF:
             saveLines.append(line)
     except Exception as e:
         print(e) # creates save file and passes default values along
-        saveF = open(rp('./save.dvd'), 'w')
+        saveF = open('./save.dvd', 'w')
         saveF.write('1.0\n120\n288\n127\n./sprites/DVD_Mask.png\nTrue')
         saveLines = ['1.0', '120', '288', '127', './sprites/DVD_Mask.png', 'True']
     
@@ -646,4 +646,3 @@ while run:
 
 save()
 p.quit()
-quit()
