@@ -7,7 +7,7 @@ from pygame_widgets.progressbar import ProgressBar
 from tkinter import filedialog
 from packaging.version import Version
 
-current_version = 'v1.3.0b'
+current_version = 'v1.3.0'
 latest_version = ''
 download_url = 'None'
 download = False
