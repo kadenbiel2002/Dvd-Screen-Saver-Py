@@ -65,7 +65,7 @@ def restart_and_replace():
     if not running_exe.endswith('python.exe'):
         subprocess.Popen(batch_file, shell=True)
     else:
-        print("dev mode detected, batch file not created")
+        print("dev mode detected, batch file not ran")
 
 def rp(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
