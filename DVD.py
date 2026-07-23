@@ -1,10 +1,76 @@
-import pygame as p, pygame_widgets as pw, random as r, time as t, sys, tkinter as tk, os
+import pygame as p, pygame_widgets as pw, random as r, time as t, sys, tkinter as tk, os, requests, subprocess, pdb
 from pygame_widgets.slider import Slider
 from pygame_widgets.textbox import TextBox
 from pygame_widgets.button import Button
 from pygame_widgets.toggle import Toggle
 from pygame_widgets.progressbar import ProgressBar
 from tkinter import filedialog
+from packaging.version import Version
+
+current_version = 'v1.3.0'
+latest_version = ''
+download_url = 'None'
+download = False
+devTools = False
+
+def check_for_updates():
+    global download_url, latest_version, devTools
+    url = "https://api.github.com/repos/kadenbiel2002/Dvd-Screen-Saver-Py/releases/latest"
+    print("Checking for updates...")
+    try:
+        response = requests.get(url).json()
+        latest_version = response.get("tag_name", "")
+        assets = response.get("assets", [])
+        exe = None
+        if Version(latest_version) > Version(current_version):
+            for asset in assets:
+                if asset["name"].endswith(".exe"):
+                    download_url = asset["browser_download_url"]
+                    print(f"New version {latest_version} available! download at: {download_url}")
+                    break
+        elif Version(current_version) > Version(latest_version):
+            print(f"{current_version} is detected as being in development, dev mode enabled")
+            devTools = True
+        else:
+            print(f"{current_version} is the latest version")
+    except Exception as e:
+        print(f"Could not check for updates: {e}")
+
+def download_update():
+    print(f"Downloading {latest_version}...")
+    with requests.get(download_url, stream=True) as r:
+        r.raise_for_status()
+        with open('./temp.exe', "wb") as f:
+            for chunk in r.iter_content(chunk_size=8192):
+                f.write(chunk)
+    restart_and_replace()
+    return
+
+def restart_and_replace():
+    running_exe = sys.executable  # Path to the currently running .exe
+    new_exe = "./temp.exe"  # The updated executable file
+    # 2. Spawn a helper/updater process (detached from the current process)
+    # The helper script/bat will wait a second, overwrite running_exe with new_exe, and launch it.
+    script_content = f"""
+    timeout /t 2 > nul
+    del "{running_exe}"
+    copy "{new_exe}" "{running_exe}"
+    del "{new_exe}"
+    start "" "{running_exe}"
+    del "%~f0"
+    """
+            
+    # Creates a temporary batch file for the update sequence
+    batch_file = "update_helper.bat"
+    batch = open(batch_file, "w")
+    batch.write(script_content)
+    batch.close()
+
+    #if the running exe is python.exe, batch file is not executed so we don't replace python with the dvd screen saver (i've done it, trust me you don't want to try it)
+    if not running_exe.endswith('python.exe'):
+        subprocess.Popen(batch_file, shell=True)
+    else:
+        print("dev mode detected, batch file not ran")
 
 def rp(relative_path):
     """ Get absolute path to resource, works for dev and for PyInstaller """
@@ -168,6 +234,12 @@ def progress():
     startProg += 0.005
     return startProg
 
+p.mixer.init()
+sfx1 = p.mixer.Sound(rp('./sprites/sfx1.ogg'))
+sfx2 = p.mixer.Sound(rp('./sprites/sfx2.ogg'))
+sfx3 = p.mixer.Sound(rp('./sprites/sfx3.ogg'))
+sfx4 = p.mixer.Sound(rp('./sprites/sfx4.ogg'))
+trumpet = p.mixer.Sound(rp('./sprites/trumpet.ogg'))
 root = tk.Tk()
 root.withdraw() 
 root.attributes('-topmost', True)
@@ -217,7 +289,6 @@ p.display.set_caption('DVD')#Sets executable capton
 fps = fpsS.getValue() #sets FPS
 clock = p.time.Clock() #sets FPS clock
 
-run = True
 x, y = screen.get_rect().center #sets the start location
 counter = 0
 edgeX = False #edge detection to prevent logo from locking up outside of bounds
@@ -257,13 +328,16 @@ def get_info(color):
     hits = "Total hits: "+str(h) #gets total hits
     corner = "Corner hits: "+str(c) #gets corner hits
 
-    return ["DVD X: "+str(curPosX)+" Y: "+str(curPosY), "Screen Width: "+str(curW)+" Height: "+str(curH), "FPS: "+str(fps), hits, corner, color]
+    return ["Version: "+str(current_version), "DVD X: "+str(curPosX)+" Y: "+str(curPosY), "Screen Width: "+str(curW)+" Height: "+str(curH), "FPS: "+str(fps), hits, corner, color]
 
 def hit_edge(xy, dvd=p.image.load(rp('./sprites/DVD_Mask.png'))):
     """
     Function for when logo hits the edge
         xy: int, expects 1 if horizontal edge is hit and 0 if vertical edge is hit.
     """
+    if finished:
+        sfx = r.choice([sfx1, sfx2, sfx3, sfx4])
+        sfx.play()
     vel[xy] = -vel[xy] #"Bounces" logo of the edge
     new_color = r.choice(colors)
     if new_color == wht:
@@ -344,6 +418,8 @@ ksTxt, ksRect = renderText('Keep Scale')
 
 oldX, oldY = 0, 0
 
+run = __name__ == '__main__'
+
 while run:
     events = p.event.get()
     for event in events:
@@ -417,6 +493,21 @@ while run:
                     keepScale.hide()
                     if fullscr:
                         p.mouse.set_visible(False)
+            if devTools:
+                #forces logo to hit corner, only for debugging
+                if event.key == p.K_c:
+                    if vel[0] > 0:
+                        x = width-offsetX-100
+                    else:
+                        x = offsetX+100
+                    if vel[1] > 0:
+                        y = height-offsetY-100
+                    else:
+                        y = offsetY+100
+
+                if event.key == p.K_d:
+                    pdb.set_trace()
+            
 
     src = p.display.Info()
     width, height = src.current_w, src.current_h
@@ -465,6 +556,7 @@ while run:
         dvdW, dvdH = DVDRECT.size
     
     if edgeX and edgeY:
+        trumpet.play()
         print("corner")
         c += 1 #increase corner counter
        
@@ -483,6 +575,8 @@ while run:
     #shows live info menu
     if showInfo:
         info = get_info(color)
+        if devTools:
+            info.insert(1, "Dev Tools Enabled")
         for i in info:
             curIn = Font.render(i, True, (255,255,255))
             curInRect = curIn.get_rect()
@@ -639,7 +733,21 @@ while run:
         finished = True
         settings = False
         startup.hide()
-    
+
+    if latest_version == '':
+        check_for_updates()
+        if devTools:
+            helpmsg.append("C: Force logo to corner")
+            helpmsg.append("D: Open debug console")
+
+    if download_url != 'None' and startProg > 0.37:
+        download = tk.messagebox.askyesno(title="Update Available!", message=f"Version {latest_version} is available for download, would you like to update?")
+        if download:
+            download_update()
+            run = False
+        else:
+            download_url = 'None'
+
     pw.update(events)
     p.display.update() #updates screen
     clock.tick(fps) #updates fps clock
