@@ -27,3 +27,7 @@ cd Dvd-Screen-Saver-Py
 ```sh
 pip install -r requirements.txt
 ```
+3. Run
+```sh
+python DVD.py
+```
