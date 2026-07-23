@@ -2,7 +2,7 @@
 Probably the stupidest project you will ever see, a Dvd screen saver written in python using pygame. This project is pretty simple as far as coding goes, and has options for the user to do whatever with. There are a couple bugs to work out but those won't take long.
 
 ## Dowloads
-Just go to the releases tab and download the [lastest version]() directly from there.
+Just go to the releases tab and download the [lastest version](https://github.com/kadenbiel2002/Dvd-Screen-Saver-Py/releases/latest) directly from there.
 
 <!-- Contributing -->
 ## Contributing
