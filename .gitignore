@@ -105,3 +105,5 @@ ENV/
 DVD.spec
 **/build/
 **/dist/
+.vscode/
+build_release.py

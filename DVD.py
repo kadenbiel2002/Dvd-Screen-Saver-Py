@@ -7,7 +7,7 @@ from pygame_widgets.progressbar import ProgressBar
 from tkinter import filedialog
 from packaging.version import Version
 
-current_version = 'v1.3.0'
+current_version = 'v1.3.1'
 latest_version = ''
 download_url = 'None'
 download = False
@@ -124,7 +124,7 @@ def save():
     Writes settings to save file, each setting value is stored on one line of the save file.
     """
     saveF = open('./save.dvd', 'w')
-    for i in [speed.getValue(), '\n', fpsS.getValue(), '\n', imageX.getValue(), '\n', imageY.getValue(), '\n', imageL.getText(), '\n', keepScale.getValue()]:
+    for i in [speed.getValue(), '\n', fpsS.getValue(), '\n', imageX.getValue(), '\n', imageY.getValue(), '\n', imageL.getText(), '\n', keepScale.getValue(), '\n', sfxOn.getValue()]:
         saveF.write(str(i))
     saveF.close()
     print('saved')
@@ -142,8 +142,8 @@ def openSave():
     except Exception as e:
         print(e) # creates save file and passes default values along
         saveF = open('./save.dvd', 'w')
-        saveF.write('1.0\n120\n288\n127\n./sprites/DVD_Mask.png\nTrue')
-        saveLines = ['1.0', '120', '288', '127', './sprites/DVD_Mask.png', 'True']
+        saveF.write('1.0\n120\n288\n127\n./sprites/DVD_Mask.png\nTrue\nTrue')
+        saveLines = ['1.0', '120', '288', '127', './sprites/DVD_Mask.png', 'True', 'True']
     
     saveF.close()
     
@@ -159,6 +159,10 @@ def openSave():
         ksBool = False
     else:
         ksBool = True
+    if saveLines[6] == 'False':
+        soBool = False
+    else:
+        soBool = True
     altSpeed = 'n' # set to 's' for slow mode, 'f' for fast mode and 'n' for normal
 
     if not checkIn(float(saveLines[0]), .5, 30):
@@ -171,7 +175,7 @@ def openSave():
             altSpeed = 's'
             speed.min = .01
             speedL.setText('slow')
-    return altSpeed, ksBool
+    return altSpeed, ksBool, soBool
 
 def reset():
     """
@@ -270,9 +274,11 @@ imageY = Slider(screen, 100, 510, 800, 20, min=25, max=550, step=1, initial=127,
 imageY.hide()
 resetB = Button(screen, 100, 650, 50, 30, text='Reset', onClick=reset)
 resetB.hide()
-altSpeed, ksBool = openSave() #opens save file, returns string for altSpeed mode
+altSpeed, ksBool, soBool = openSave() #opens save file, returns string for altSpeed mode
 keepScale = Toggle(screen, 100, 610, 20, 20, startOn=ksBool)
 keepScale.hide()
+sfxOn = Toggle(screen, 100, 610, 20, 20, startOn=soBool)
+sfxOn.hide()
 startup = ProgressBar(screen, 100, 100, 800, 60, progress, curved=True)
 os.environ['SDL_VIDEO_CENTERED'] = '1'
 x, y, vel = 0, 0, [speed.getValue()*r.choice([1, -1]), speed.getValue()*r.choice([1, -1])] #Makes coordinates and velocity
@@ -312,6 +318,8 @@ imageText = './sprites/DVD_Mask.png'
 submit = False
 prevHit = ''
 finished = False
+sfx = sfx1
+playTrumpets = False
 
 def get_info(color):
     """
@@ -335,7 +343,9 @@ def hit_edge(xy, dvd=p.image.load(rp('./sprites/DVD_Mask.png'))):
     Function for when logo hits the edge
         xy: int, expects 1 if horizontal edge is hit and 0 if vertical edge is hit.
     """
-    if finished:
+    global sfx
+    if finished and sfxOn.getValue():
+        sfx.stop()
         sfx = r.choice([sfx1, sfx2, sfx3, sfx4])
         sfx.play()
     vel[xy] = -vel[xy] #"Bounces" logo of the edge
@@ -415,6 +425,7 @@ imTxt, imRect = renderText('File Name')
 imxTxt, imxRect = renderText('Logo Width: 288')
 imyTxt, imyRect = renderText('Logo Height: 127')
 ksTxt, ksRect = renderText('Keep Scale')
+soTxt, soRect = renderText('Sound FX')
 
 oldX, oldY = 0, 0
 
@@ -479,6 +490,7 @@ while run:
                     imageX.show()
                     imageY.show()
                     keepScale.show()
+                    sfxOn.show()
                     p.mouse.set_visible(True)
                 else:
                     speed.hide()
@@ -491,6 +503,7 @@ while run:
                     imageX.hide()
                     imageY.hide()
                     keepScale.hide()
+                    sfxOn.hide()
                     if fullscr:
                         p.mouse.set_visible(False)
             if devTools:
@@ -556,7 +569,9 @@ while run:
         dvdW, dvdH = DVDRECT.size
     
     if edgeX and edgeY:
-        trumpet.play()
+        if sfxOn.getValue():
+            sfx.stop()
+            trumpet.play()
         print("corner")
         c += 1 #increase corner counter
        
@@ -601,14 +616,16 @@ while run:
             spRect.center = (round(width/2), 28)
             fpRect.center = (round(width/2), 158)
             imRect.center = (round(width/2), 288)
-            ksRect.center = (round(width/2), 588)
+            ksRect.center = (round(width/2)-100, 588)
+            soRect.center = (round(width/2)+100, 588)
             speed.setWidth(width-200)
             fpsS.setWidth(width-200)
             imageX.setWidth(width-200)
             imageY.setWidth(width-200)
             speedL.setX(int(round(width/2))-int(round(speedL.getWidth()/2)))
             fpsL.setX(int(round(width/2))-int(round(fpsL.getWidth()/2)))
-            keepScale.setX(int(round(width/2))-int(round(keepScale.getWidth()/2)))
+            keepScale.setX(int(round(width/2))-int(round((keepScale.getWidth()+sfxOn.getWidth()+200)/2)))
+            sfxOn.setX(keepScale.getX()+keepScale.getWidth()+200)
             resetB.setX(int(round(width/2))-int(round(resetB.getWidth()/2)))
 
             fileWidth = imageL.getWidth() + fileB.getWidth() + 25
@@ -624,6 +641,7 @@ while run:
         screen.blit(imxTxt, imxRect)
         screen.blit(imyTxt, imyRect)
         screen.blit(ksTxt, ksRect)
+        screen.blit(soTxt, soRect)
 
         if abs(vel[0]) != speed.getValue():
             if speed.getValue() > 30 and altSpeed != 'f':
