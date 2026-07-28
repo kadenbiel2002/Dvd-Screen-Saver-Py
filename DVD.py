@@ -148,20 +148,41 @@ def openSave():
     saveF.close()
     
     # sets sliders and text box to saved values, updating slider values will automatically update speed and fps variables
-    speed.setValue(float(saveLines[0]))
+    try:
+        speed.setValue(float(saveLines[0]))
+    except:
+        speed.setValue(1.0)
     speedL.setText(speed.getValue())
-    fpsS.setValue(float(saveLines[1]))
+    try:
+        fpsS.setValue(int(saveLines[1]))
+    except:
+        fpsS.setValue(120)
     fpsL.setText(fpsS.getValue())
-    imageX.setValue(int(saveLines[2]))
-    imageY.setValue(int(saveLines[3]))
-    imageL.setText(saveLines[4].replace('\n', ''))
-    if saveLines[5] == 'False':
-        ksBool = False
-    else:
+    try:
+        imageX.setValue(int(saveLines[2]))
+    except:
+        imageX.setValue(288)
+    try:
+        imageY.setValue(int(saveLines[3]))
+    except:
+        imageY.setValue(127)
+    try:
+        imageL.setText(saveLines[4].replace('\n', ''))
+    except:
+        imageL.setText('./sprites/DVD_Mask.png')
+    try:
+        if saveLines[5] == 'False':
+            ksBool = False
+        else:
+            ksBool = True
+    except:
         ksBool = True
-    if saveLines[6] == 'False':
-        soBool = False
-    else:
+    try:
+        if saveLines[6] == 'False':
+            soBool = False
+        else:
+            soBool = True
+    except:
         soBool = True
     altSpeed = 'n' # set to 's' for slow mode, 'f' for fast mode and 'n' for normal
 
